@@ -5,9 +5,8 @@ import json, os
 from threading import Thread
 from flask import Flask
 
-# --- الإعدادات الثابتة ---
+# --- الإعدادات ---
 BOT_TOKEN = "8476427848:AAFvLp9QK8VYv4uZTCOkJR-H_mWnVvZQv3Q"
-ADMIN_ID = "8463703998" 
 API_KEY = "9967a35290cae1978403a8caa91c59d6"
 API_URL = "https://kd1s.com/api/v2"
 POINT_VALUE = 2000 
@@ -16,9 +15,9 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask('')
 
 @app.route('/')
-def home(): return "SYSTEM FULLY FIXED 🟢"
+def home(): return "SYSTEM FULLY OPERATIONAL 🟢"
 
-# --- إدارة قاعدة البيانات ---
+# --- إدارة البيانات ---
 def load_db():
     if not os.path.exists('db.json'): 
         return {"users": {}, "codes": {}, "orders_count": 6385597}
@@ -27,83 +26,94 @@ def load_db():
 def save_db(db):
     with open('db.json', 'w') as f: json.dump(db, f)
 
-# --- واجهة الأزرار الكاملة (إعادة بناء دقيقة) ---
-def get_full_markup(uid):
+# --- واجهة الأزرار الشاملة (لا يوجد نقص) ---
+def main_markup(uid):
     db = load_db()
     pts = db["users"].get(uid, {"points": 0})["points"]
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.row(types.InlineKeyboardButton("🛍️ قائمة الخدمات", callback_data="all_services"))
-    markup.add(types.InlineKeyboardButton(f"📟 الحساب ({pts})", callback_data="my_acc"), 
+    markup.add(types.InlineKeyboardButton(f"📟 الحساب ({pts})", callback_data="acc_info"), 
                types.InlineKeyboardButton("✳️ تجميع", callback_data="collect_pts"))
     markup.add(types.InlineKeyboardButton("🔍 بحث", callback_data="search_svc"), 
-               types.InlineKeyboardButton("💳 استخدام كود", callback_data="enter_code"))
-    markup.add(types.InlineKeyboardButton("🚩 تتبع طلب", callback_data="track_order"), 
-               types.InlineKeyboardButton("💰 شحن نقاط", callback_data="charge_pts"))
-    markup.add(types.InlineKeyboardButton("📜 الشروط", callback_data="terms_info"), 
-               types.InlineKeyboardButton("⚙️ التحديثات", callback_data="updates_info"))
+               types.InlineKeyboardButton("💳 استخدام كود", callback_data="use_code_pts"))
+    markup.add(types.InlineKeyboardButton("🚩 تتبع طلب", callback_data="track_order_now"), 
+               types.InlineKeyboardButton("💰 شحن نقاط", callback_data="topup_direct"))
+    markup.add(types.InlineKeyboardButton("📜 الشروط", callback_data="terms_view"), 
+               types.InlineKeyboardButton("⚙️ التحديثات", callback_data="updates_view"))
     markup.row(types.InlineKeyboardButton(f"✅ عدد الطلبات : {db['orders_count']}", callback_data="none"))
     return markup
 
 @bot.message_handler(commands=['start'])
-def start_cmd(message):
+def start(message):
     uid = str(message.chat.id)
     db = load_db()
     if uid not in db["users"]: db["users"][uid] = {"points": 0}
     save_db(db)
-    bot.send_message(message.chat.id, "👋 أهلاً بك في بوت الشموخ\nيرجى اختيار أحد الخيارات:", reply_markup=get_full_markup(uid))
+    bot.send_message(message.chat.id, "👋 أهلاً بك في بوت الشموخ الاحترافي\nتم تنظيم الخدمات لتسهيل اختيارك:", reply_markup=main_markup(uid))
 
-# --- معالج الأوامر الموحد ---
+# --- معالج الأزرار الموحد (إصلاح شامل لجميع المسارات) ---
 @bot.callback_query_handler(func=lambda call: True)
-def handle_all_actions(call):
+def handle_all_callbacks(call):
     uid = str(call.message.chat.id)
     
-    # 1. عرض الأقسام المرتبة
+    # 1. قائمة المنصات الرئيسية
     if call.data == "all_services":
-        cats = [
+        platforms = [
             ("📸 إنستقرام", "Instagram"), ("🎬 تيك توك", "TikTok"), 
             ("💬 واتساب", "WhatsApp"), ("🎥 يوتيوب", "YouTube"),
             ("🟡 سناب شات", "Snapchat"), ("🎮 بوبجي", "PUBG"),
-            ("🎲 لودو", "Ludo"), ("🔹 تليجرام", "Telegram")
+            ("🎲 لودو", "Ludo"), ("🔹 تليجرام", "Telegram"),
+            ("👤 فيسبوك", "Facebook")
         ]
         markup = types.InlineKeyboardMarkup(row_width=1)
-        for c_text, c_id in cats:
-            markup.add(types.InlineKeyboardButton(c_text, callback_data=f"get_{c_id}"))
-        markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="main_home"))
-        bot.edit_message_text("📂 اختر القسم المطلوب:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        for name, pid in platforms:
+            markup.add(types.InlineKeyboardButton(name, callback_data=f"sub_{pid}"))
+        markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="back_main"))
+        bot.edit_message_text("📂 اختر المنصة:", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    # 2. جلب الخدمات (إصلاح البحث الدقيق)
-    elif call.data.startswith("get_"):
-        key = call.data.split("_")[1]
-        bot.answer_callback_query(call.id, "🔎 جاري فحص الخدمات في kd1s...")
+    # 2. نظام التصنيفات الفرعية (متابعين، لايكات...)
+    elif call.data.startswith("sub_"):
+        plat = call.data.split("_")[1]
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        subs = [("👥 متابعين", "Followers"), ("❤️ لايكات", "Likes"), ("👁️ مشاهدات", "Views"), ("💬 تعليقات", "Comments")]
+        for n, s in subs:
+            markup.add(types.InlineKeyboardButton(n, callback_data=f"final_{plat}_{s}"))
+        markup.add(types.InlineKeyboardButton("🔙 العودة للمنصات", callback_data="all_services"))
+        bot.edit_message_text(f"🛠️ تصنيفات خدمات {plat}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    # 3. جلب الخدمات النهائية (دقة البحث)
+    elif call.data.startswith("final_"):
+        _, plat, sub = call.data.split("_")
+        bot.answer_callback_query(call.id, "⏳ يتم الآن استخراج الخدمات...")
         res = requests.post(API_URL, data={'key': API_KEY, 'action': 'services'}).json()
         markup = types.InlineKeyboardMarkup()
-        
-        found_count = 0
+        count = 0
         for s in res:
-            # تدقيق البحث في القسم والاسم معاً لضمان الظهور
-            if key.lower() in s['category'].lower() or key.lower() in s['name'].lower():
-                if found_count < 20:
+            if plat.lower() in s['category'].lower() and sub.lower() in s['name'].lower():
+                if count < 15:
                     price = int(float(s['rate']) * POINT_VALUE)
                     name = s['name'].replace("Followers", "متابعين").replace("Likes", "لايكات")
-                    markup.add(types.InlineKeyboardButton(f"🔹 {name[:25]} | {price}ن", callback_data=f"buy_{s['service']}"))
-                    found_count += 1
-        
-        if found_count == 0:
-            bot.answer_callback_query(call.id, "❌ لا توجد خدمات حالية لهذا القسم", show_alert=True)
+                    markup.add(types.InlineKeyboardButton(f"🔹 {name[:25]} | {price}ن", callback_data=f"order_{s['service']}"))
+                    count += 1
+        if count == 0:
+            bot.answer_callback_query(call.id, "⚠️ لا توجد خدمات متاحة لهذا التصنيف حالياً", show_alert=True)
             return
+        markup.add(types.InlineKeyboardButton(f"🔙 رجوع لـ {plat}", callback_data=f"sub_{plat}"))
+        bot.edit_message_text(f"🚀 خدمات {sub} لـ {plat}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-        markup.add(types.InlineKeyboardButton("🔙 عودة للأقسام", callback_data="all_services"))
-        bot.edit_message_text(f"🚀 خدمات {key}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+    # 4. تفعيل أزرار القائمة الرئيسية المتبقية
+    elif call.data == "acc_info":
+        db = load_db()
+        pts = db["users"].get(uid, {"points": 0})["points"]
+        bot.answer_callback_query(call.id, f"👤 حسابك يحتوي على: {pts} نقطة", show_alert=True)
 
-    # 3. العودة للقائمة الرئيسية
-    elif call.data == "main_home":
-        bot.edit_message_text("👋 القائمة الرئيسية:", call.message.chat.id, call.message.message_id, reply_markup=get_full_markup(uid))
+    elif call.data == "topup_direct":
+        markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("مراسلة المطور @l550r", url="https://t.me/l550r"))
+        markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="back_main"))
+        bot.edit_message_text("💰 لشحن رصيدك، يرجى التواصل مع المطور مباشرة:", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
-    # 4. زر الشحن المباشر
-    elif call.data == "charge_pts":
-        markup = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("تواصل مع المطور @l550r", url="https://t.me/l550r"))
-        markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="main_home"))
-        bot.edit_message_text("💰 لشحن نقاطك، تواصل مع المطور وارسل صورة التحويل:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+    elif call.data == "back_main":
+        bot.edit_message_text("👋 القائمة الرئيسية:", call.message.chat.id, call.message.message_id, reply_markup=main_markup(uid))
 
 def run(): app.run(host='0.0.0.0', port=8080)
 if __name__ == "__main__":
