@@ -6,7 +6,7 @@ import requests
 from threading import Thread
 from flask import Flask
 
-# --- إعداداتك الخاصة (تأكد من صحتها) ---
+# --- إعداداتك الخاصة ---
 BOT_TOKEN = "8476427848:AAFvLp9QK8VYv4uZTCOkJR-H_mWnVvZQv3Q"
 ADMIN_ID = "7154944941" 
 API_KEY_KD1S = "9967a35290cae1978403a8caa91c59d6"
@@ -18,17 +18,17 @@ app = Flask('')
 @app.route('/')
 def home(): return "SYSTEM ONLINE 🟢"
 
-# --- إدارة قاعدة البيانات ---
+# --- قاعدة بيانات بسيطة ---
 DB_FILE = 'db.json'
 def load_db():
     if not os.path.exists(DB_FILE): 
-        return {"users": {}, "orders_count": 6385597, "codes": {}}
+        return {"users": {}, "orders_count": 6385597}
     with open(DB_FILE, 'r') as f: return json.load(f)
 
 def save_db(db):
     with open(DB_FILE, 'w') as f: json.dump(db, f)
 
-# --- واجهة الأزرار الاحترافية (مثل الصورة تماماً) ---
+# --- واجهة الأزرار (نفس الصورة تماماً) ---
 def main_markup(uid, points):
     markup = types.InlineKeyboardMarkup(row_width=2)
     
@@ -80,25 +80,5 @@ def start(message):
             f"👤 نقاطك : {db['users'][uid]}\n"
             f"🆔 ايديك : {uid}")
     
-    bot.send_message(message.chat.id, text, reply_markup=main_markup(uid, db["users"][uid]))
-
-# --- معالجة الضغط على الأزرار ---
-@bot.callback_query_handler(func=lambda call: True)
-def handle_query(call):
-    db = load_db()
-    uid = str(call.message.chat.id)
+    bot.send_message(message.chat.id, text, reply_markup=main_
     
-    if call.data == "account":
-        bot.answer_callback_query(call.id, f"رصيدك: {db['users'].get(uid, 0)} نقطة")
-    
-    elif call.data == "topup":
-        bot.send_message(call.message.chat.id, "💰 لشحن النقاط، أرسل كارت آسيا سيل للمطور: @YourUsername")
-
-    elif call.data == "services":
-        bot.send_message(call.message.chat.id, "🚀 قسم الخدمات سيتم ربطه قريباً بموقع KD1S")
-
-# --- تشغيل البوت والسيرفر ---
-def run(): app.run(host='0.0.0.0', port=8080)
-if __name__ == "__main__":
-    Thread(target=run).start()
-    bot.polling(none_stop=True)
