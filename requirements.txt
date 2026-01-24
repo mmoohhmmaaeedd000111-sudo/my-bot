@@ -3,10 +3,3 @@ requests
 flask
 StringGenerator
 
-
-
-
-
-
-
-
