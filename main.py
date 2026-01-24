@@ -1,97 +1,86 @@
 import telebot
 from telebot import types
-import requests
-import json, os
-from threading import Thread
-from flask import Flask
+import json, os, time
 
 # --- الإعدادات ---
-BOT_TOKEN = "8476427848:AAFvLp9QK8VYv4uZTCOkJR-H_mWnVvZQv3Q"
-API_KEY = "9967a35290cae1978403a8caa91c59d6"
-API_URL = "https://kd1s.com/api/v2"
-POINT_VALUE = 2000 
+TOKEN = "8476427848:AAFvLp9QK8VYv4uZTCOkJR-H_mWnVvZQv3Q"
+ADMIN_ID = "8463703998"
+bot = telebot.TeleBot(TOKEN)
 
-bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask('')
+# --- دالة جلب بيانات المستخدم ---
+def get_user(uid):
+    path = f"data/{uid}.json"
+    if not os.path.exists("data"): os.makedirs("data")
+    if not os.path.exists(path):
+        data = {"coin": 0, "invite": 0, "used": 0, "name": ""}
+        with open(path, "w") as f: json.dump(data, f)
+    return json.load(open(path))
 
-@app.route('/')
-def home(): return "SUPER FAST SYSTEM ACTIVE 🟢"
+def save_user(uid, data):
+    with open(f"data/{uid}.json", "w") as f: json.dump(data, f)
 
-# قاموس الترجمة الفورية لتحويل الخدمات للغة العربية
-TRANSLATION = {
-    "followers": "متابعين",
-    "likes": "لايكات",
-    "views": "مشاهدات",
-    "comments": "تعليقات",
-    "subscribers": "مشتركين",
-    "real": "حقيقي",
-    "guaranteed": "ضمان",
-    "high quality": "جودة عالية"
-}
+# --- الواجهة الرئيسية (مطابقة للصور) ---
+def main_markup():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # السطر الأول: الخدمات
+    markup.row(types.InlineKeyboardButton("🛍️ قائمة الخدمات", callback_data="services"))
+    # السطر الثاني: الحساب وتجميع النقاط
+    markup.add(
+        types.InlineKeyboardButton("📟 الحساب", callback_data="acc"),
+        types.InlineKeyboardButton("✳️ تجميع نقاط", callback_data="collect")
+    )
+    # السطر الثالث: استخدام كود وتتبع طلب
+    markup.add(
+        types.InlineKeyboardButton("💳 استخدام كود", callback_data="use_code"),
+        types.InlineKeyboardButton("🚩 تتبع طلب", callback_data="track")
+    )
+    # السطر الأخير: شحن النقاط
+    markup.row(types.InlineKeyboardButton("💰 شحن نقاط", callback_data="topup"))
+    return markup
 
-def translate_name(name):
-    name = name.lower()
-    for eng, arb in TRANSLATION.items():
-        name = name.replace(eng, arb)
-    return name.title()
-
-# --- جلب الخدمات وتخزينها لسرعة الاستجابة ---
-SERVICES_CACHE = []
-def update_cache():
-    global SERVICES_CACHE
-    try:
-        res = requests.post(API_URL, data={'key': API_KEY, 'action': 'services'}).json()
-        SERVICES_CACHE = res
-    except: pass
-
-# تحديث البيانات كل ساعة تلقائياً
-update_cache()
-
+# --- أمر التشغيل ---
 @bot.message_handler(commands=['start'])
 def start(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(types.InlineKeyboardButton("🛍️ قائمة الخدمات المعربة", callback_data="all_sv"))
-    markup.add(types.InlineKeyboardButton("📟 حسابك", callback_data="acc"), 
-               types.InlineKeyboardButton("💰 شحن رصيد", callback_data="topup"))
-    bot.send_message(message.chat.id, "👋 مرحباً بك في النسخة المطورة والسريعة\nالآن الخدمات معربة وتظهر فوراً!", reply_markup=markup)
+    uid = str(message.from_user.id)
+    user = get_user(uid)
+    
+    # رسالة الترحيب بنفس نمط الصورة
+    welcome_text = (
+        f"👋 أهلاً بك يا {message.from_user.first_name} في بوت دعمكم\n"
+        f"————————————————\n"
+        f"💰 نقاطك الحالية: {user['coin']}\n"
+        f"✳️ نقاطك المستخدمة: {user['used']}\n"
+        f"👥 عدد دعواتك: {user['invite']}\n"
+        f"————————————————\n"
+        f"🚀 يمكنك زيادة متابعينك وتفاعلاتك بسهولة من هنا."
+    )
+    bot.send_message(message.chat.id, welcome_text, reply_markup=main_markup())
 
+# --- معالجة الأزرار ---
 @bot.callback_query_handler(func=lambda call: True)
-def handle_actions(call):
-    if call.data == "all_sv":
-        platforms = [("📸 إنستقرام", "Instagram"), ("🎬 تيك توك", "TikTok"), ("🎥 يوتيوب", "YouTube"), ("🔹 تليجرام", "Telegram")]
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for name, pid in platforms:
-            markup.add(types.InlineKeyboardButton(name, callback_data=f"p_{pid}"))
-        bot.edit_message_text("📂 اختر المنصة (التحميل فوري):", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-    elif call.data.startswith("p_"):
-        plat = call.data.split("_")[1]
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        # تصنيفات فرعية واضحة
-        subs = [("👥 متابعين", "Followers"), ("❤️ لايكات", "Likes"), ("👁️ مشاهدات", "Views")]
-        for n, s in subs:
-            markup.add(types.InlineKeyboardButton(n, callback_data=f"f_{plat}_{s}"))
-        bot.edit_message_text(f"🛠️ خدمات {plat}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-    elif call.data.startswith("f_"):
-        _, plat, sub = call.data.split("_")
-        markup = types.InlineKeyboardMarkup()
+def callback_handler(call):
+    uid = str(call.from_user.id)
+    
+    if call.data == "acc":
+        user = get_user(uid)
+        text = f"🗃️ تفاصيل حسابك:\n\n💰 الرصيد: {user['coin']}\n👥 الدعوات: {user['invite']}"
+        bot.answer_callback_query(call.id, text, show_alert=True)
         
-        # استخدام التخزين المؤقت (السرعة)
-        count = 0
-        for s in SERVICES_CACHE:
-            if plat.lower() in s['category'].lower() and sub.lower() in s['name'].lower():
-                if count < 10:
-                    price = int(float(s['rate']) * POINT_VALUE)
-                    # تعريب الاسم قبل العرض
-                    arb_name = translate_name(s['name'])
-                    markup.add(types.InlineKeyboardButton(f"🔹 {arb_name[:25]} | {price}ن", callback_data=f"ord_{s['service']}"))
-                    count += 1
-        
-        bot.edit_message_text(f"🚀 تم تعريب خدمات {sub}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+    elif call.data == "services":
+        # واجهة الخدمات الفرعية
+        s_markup = types.InlineKeyboardMarkup(row_width=2)
+        s_markup.add(
+            types.InlineKeyboardButton("📸 إنستقرام", callback_data="ser_insta"),
+            types.InlineKeyboardButton("🎬 تيك توك", callback_data="ser_tik")
+        )
+        s_markup.row(types.InlineKeyboardButton("🔙 رجوع", callback_data="home"))
+        bot.edit_message_text("📂 اختر المنصة المطلوبة:", call.message.chat.id, call.message.message_id, reply_markup=s_markup)
 
-def run(): app.run(host='0.0.0.0', port=8080)
-if __name__ == "__main__":
-    Thread(target=run).start()
-    bot.polling(none_stop=True)
+    elif call.data == "home":
+        user = get_user(uid)
+        welcome_text = f"👋 أهلاً بك مجدداً..\n💰 نقاطك: {user['coin']}"
+        bot.edit_message_text(welcome_text, call.message.chat.id, call.message.message_id, reply_markup=main_markup())
 
+# --- تشغيل البوت ---
+print("✅ البوت يعمل الآن بنفس تصميم الصور...")
+bot.infinity_polling()
